@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+import json
+from typing import Any, AsyncIterator, Dict
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import ValidationError
 
 from wellsky_mcp import ReachOutInput, simulate_wellsky_outreach
 
@@ -14,7 +18,10 @@ app = FastAPI(
 
 @app.get("/")
 async def index():
-    return {"status": "ok", "message": "Use POST / or POST /api/mcp for MCP tool calls."}
+    return {
+        "status": "ok",
+        "message": "Use POST / or POST /api/mcp for MCP tool calls.",
+    }
 
 
 @app.get("/api/mcp")
@@ -22,13 +29,8 @@ async def mcp_health():
     return {"status": "ok", "message": "POST to this path to call reach_out_to_patients."}
 
 
-@app.post("/")
-@app.post("/api/mcp")
-async def reach_out_to_patients(payload: ReachOutInput):
-    try:
-        simulation = simulate_wellsky_outreach(payload)
-    except ValueError as exc:  # bubble up validation from nested models
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+def _build_tool_result(parsed: ReachOutInput) -> Dict[str, Any]:
+    simulation = simulate_wellsky_outreach(parsed)
 
     queued = sum(1 for outcome in simulation.outcomes if outcome.status == "queued")
     manual = len(simulation.outcomes) - queued
@@ -52,11 +54,100 @@ async def reach_out_to_patients(payload: ReachOutInput):
         ]
     )
 
-    return JSONResponse(
-        {
-            "content": [
-                {"type": "text", "text": text_summary},
-                {"type": "json", "json": simulation.dict()},
-            ]
-        }
+    return {
+        "content": [
+            {"type": "text", "text": text_summary},
+            {"type": "json", "json": simulation.dict()},
+        ]
+    }
+
+
+def _format_json_rpc_result(message_id: Any, result: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": message_id,
+        "result": result,
+    }
+
+
+def _format_json_rpc_error(message_id: Any, code: int, message: str, data: Any = None) -> Dict[str, Any]:
+    error: Dict[str, Any] = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": message_id, "error": error}
+
+
+def _sse_response(payload: Dict[str, Any]) -> StreamingResponse:
+    async def event_stream() -> AsyncIterator[str]:
+        yield f"data: {json.dumps(payload)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
     )
+
+
+@app.post("/")
+@app.post("/api/mcp")
+async def reach_out_to_patients(request: Request):
+    try:
+        raw_payload = await request.json()
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Request body must be JSON.") from exc
+
+    is_json_rpc = isinstance(raw_payload, dict) and "method" in raw_payload
+
+    if not is_json_rpc:
+        try:
+            parsed = ReachOutInput(**raw_payload)
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail=exc.errors()) from exc
+
+        return JSONResponse(_build_tool_result(parsed))
+
+    message_id = raw_payload.get("id")
+    method = raw_payload.get("method")
+    params = raw_payload.get("params", {})
+
+    if method != "tools.call":
+        error_payload = _format_json_rpc_error(
+            message_id,
+            code=-32601,
+            message=f"Unsupported method '{method}'.",
+        )
+        return _sse_response(error_payload)
+
+    tool_name = params.get("name")
+    arguments = params.get("arguments", {})
+
+    if tool_name != "reach_out_to_patients":
+        error_payload = _format_json_rpc_error(
+            message_id,
+            code=-32601,
+            message=f"Unknown tool '{tool_name}'.",
+        )
+        return _sse_response(error_payload)
+
+    try:
+        parsed = ReachOutInput(**arguments)
+    except ValidationError as exc:
+        error_payload = _format_json_rpc_error(
+            message_id,
+            code=-32602,
+            message="Invalid tool arguments.",
+            data=exc.errors(),
+        )
+        return _sse_response(error_payload)
+
+    result_payload = _build_tool_result(parsed)
+
+    json_rpc_response = _format_json_rpc_result(
+        message_id,
+        result_payload,
+    )
+
+    return _sse_response(json_rpc_response)
