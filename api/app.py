@@ -40,6 +40,12 @@ def _transport_security_settings() -> TransportSecuritySettings:
         vercel_url = os.getenv("VERCEL_URL")
         if vercel_url:
             allowed_hosts.append(vercel_url)
+        allowed_hosts.extend(
+            [
+                "*.vercel.app",
+                "*.vercel.app:*",
+            ]
+        )
 
     if not allowed_origins:
         allowed_origins = [
@@ -56,6 +62,12 @@ def _transport_security_settings() -> TransportSecuritySettings:
                     f"http://{vercel_url}",
                 ]
             )
+        allowed_origins.extend(
+            [
+                "https://*.vercel.app",
+                "http://*.vercel.app",
+            ]
+        )
 
     return TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
