@@ -1,0 +1,77 @@
+# WellSky Outreach MCP Server (Python on Vercel)
+
+This project delivers a Model Context Protocol (MCP) server implemented with FastAPI and deployed via Vercel’s Python runtime. The lone tool, `reach_out_to_patients`, accepts a batch of patient records and produces a simulated outreach report. The workflow is fully mocked—no real WellSky APIs are invoked.
+
+## Prerequisites
+
+- Python 3.11+
+- `pip` (or `uv`, `pipenv`, etc.) for dependency management
+- A Vercel account with the [Vercel CLI](https://vercel.com/docs/cli) authenticated locally
+
+## Local Development
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn api.mcp:app --reload
+```
+
+The server listens on `http://localhost:8000`. The MCP tool endpoint maps to `POST /api/mcp`, which uvicorn exposes as `POST /`.
+
+Example MCP request body:
+
+```jsonc
+{
+  "id": "reach-out-demo",
+  "method": "tools.call",
+  "params": {
+    "name": "reach_out_to_patients",
+    "arguments": {
+      "patients": [
+        {
+          "id": "12345",
+          "fullName": "Alex Johnson",
+          "preferredChannel": "sms",
+          "contacts": {
+            "sms": "+15551234567",
+            "email": "alex.johnson@example.com"
+          }
+        }
+      ],
+      "messageTemplate": "Hello {fullName}, this is your WellSky care team checking in."
+    }
+  }
+}
+```
+
+The response mirrors the MCP server contract: a text summary plus structured JSON describing each simulated outreach record.
+
+## Deployment to Vercel
+
+1. Ensure the FastAPI dependencies are available to Vercel by committing `requirements.txt`.
+2. Link the project:
+   ```bash
+   vercel link
+   ```
+3. Deploy:
+   ```bash
+   vercel deploy --prod
+   ```
+
+The included `vercel.json` routes `/api/mcp` to the FastAPI app and pins the runtime to Python 3.11. No environment variables are required.
+
+## Tool Contract
+
+- **Tool name:** `reach_out_to_patients`
+- **Description:** Pretends to hand patient outreach tasks to WellSky’s engagement services.
+- **Input schema (simplified):**
+  - `patients[]` – required array
+    - `id` – string
+    - `fullName` – string
+    - `contacts` – at least one of `phone`, `sms`, or `email`
+    - Optional: `preferredChannel`, `carePlanSummary`, `notes`
+  - Optional: `messageTemplate`, `fallbackChannel`
+- **Output:** Text summary plus JSON payload with `outcomes[]` and job metadata.
+
+Because everything is mocked, feel free to adapt the schema or message templates without worrying about external dependencies.
