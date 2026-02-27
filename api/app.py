@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator, Dict
+from typing import Any, AsyncIterator, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -70,7 +70,9 @@ def _format_json_rpc_result(message_id: Any, result: Dict[str, Any]) -> Dict[str
     }
 
 
-def _format_json_rpc_error(message_id: Any, code: int, message: str, data: Any = None) -> Dict[str, Any]:
+def _format_json_rpc_error(
+    message_id: Any, code: int, message: str, data: Any = None
+) -> Dict[str, Any]:
     error: Dict[str, Any] = {"code": code, "message": message}
     if data is not None:
         error["data"] = data
@@ -114,12 +116,15 @@ async def reach_out_to_patients(request: Request):
     params = raw_payload.get("params", {})
 
     if method != "tools.call":
-        error_payload = _format_json_rpc_error(
-            message_id,
-            code=-32601,
-            message=f"Unsupported method '{method}'.",
-        )
-        return _sse_response(error_payload)
+        response = _handle_rpc_control_message(method, message_id, params)
+        if response is None:
+            error_payload = _format_json_rpc_error(
+                message_id,
+                code=-32601,
+                message=f"Unsupported method '{method}'.",
+            )
+            return _sse_response(error_payload)
+        return _sse_response(response)
 
     tool_name = params.get("name")
     arguments = params.get("arguments", {})
@@ -151,3 +156,102 @@ async def reach_out_to_patients(request: Request):
     )
 
     return _sse_response(json_rpc_response)
+
+
+def _handle_rpc_control_message(
+    method: str, message_id: Optional[Any], params: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
+    if method == "initialize":
+        capabilities = {
+            "tools": {
+                "list": True,
+                "call": True,
+            }
+        }
+        result = {
+            "protocolVersion": "0.5",
+            "serverInfo": {
+                "name": "wellsky-outreach-mcp",
+                "version": "0.2.0",
+            },
+            "capabilities": capabilities,
+        }
+        return _format_json_rpc_result(message_id, result)
+
+    if method == "tools.list":
+        tool_schema = _build_tool_json_schema()
+        result = {
+            "tools": [
+                {
+                    "name": "reach_out_to_patients",
+                    "description": (
+                        "Pretends to send outreach notifications to patients via WellSky's"
+                        " care coordination services."
+                    ),
+                    "inputSchema": tool_schema,
+                }
+            ]
+        }
+        return _format_json_rpc_result(message_id, result)
+
+    if method == "ping":
+        return _format_json_rpc_result(message_id, {"message": "pong"})
+
+    return None
+
+
+def _build_tool_json_schema() -> Dict[str, Any]:
+    contact_schema: Dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "phone": {"type": "string", "minLength": 7},
+            "sms": {"type": "string", "minLength": 7},
+            "email": {"type": "string", "format": "email"},
+        },
+        "additionalProperties": False,
+        "minProperties": 1,
+    }
+
+    patient_schema: Dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "fullName": {"type": "string", "minLength": 1},
+            "preferredChannel": {
+                "type": "string",
+                "enum": ["phone", "sms", "email"],
+            },
+            "contacts": contact_schema,
+            "carePlanSummary": {
+                "type": "string",
+                "maxLength": 280,
+            },
+            "notes": {
+                "type": "string",
+                "maxLength": 500,
+            },
+        },
+        "required": ["id", "fullName", "contacts"],
+        "additionalProperties": False,
+    }
+
+    return {
+        "type": "object",
+        "properties": {
+            "patients": {
+                "type": "array",
+                "items": patient_schema,
+                "minItems": 1,
+            },
+            "messageTemplate": {
+                "type": "string",
+                "maxLength": 500,
+            },
+            "fallbackChannel": {
+                "type": "string",
+                "enum": ["phone", "sms", "email"],
+            },
+        },
+        "required": ["patients"],
+        "additionalProperties": False,
+    }
