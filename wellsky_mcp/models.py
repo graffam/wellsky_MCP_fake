@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, root_validator, validator
+from pydantic import BaseModel, Field, root_validator, validator
 
 OutreachChannel = Literal["phone", "sms", "email"]
 OutreachStatus = Literal["queued", "needs_manual_review"]
@@ -11,9 +11,15 @@ OutreachStatus = Literal["queued", "needs_manual_review"]
 class ContactInfo(BaseModel):
     phone: Optional[str] = Field(None, min_length=7)
     sms: Optional[str] = Field(None, min_length=7)
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
 
-    @root_validator
+    @validator("email")
+    def validate_email_format(cls, value: Optional[str]) -> Optional[str]:
+        if value and "@" not in value:
+            raise ValueError("Provide a valid email address.")
+        return value
+
+    @root_validator(skip_on_failure=True)
     def ensure_at_least_one_contact(cls, values: dict[str, Optional[str]]) -> dict[str, Optional[str]]:
         if not any(values.get(field) for field in ("phone", "sms", "email")):
             raise ValueError(
