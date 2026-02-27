@@ -14,10 +14,16 @@ app = FastAPI(
 
 @app.get("/")
 async def index():
-    return {"status": "ok", "message": "Use POST / for MCP tool calls."}
+    return {"status": "ok", "message": "Use POST / or POST /api/mcp for MCP tool calls."}
+
+
+@app.get("/api/mcp")
+async def mcp_health():
+    return {"status": "ok", "message": "POST to this path to call reach_out_to_patients."}
 
 
 @app.post("/")
+@app.post("/api/mcp")
 async def reach_out_to_patients(payload: ReachOutInput):
     try:
         simulation = simulate_wellsky_outreach(payload)

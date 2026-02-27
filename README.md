@@ -14,10 +14,10 @@ This project delivers a Model Context Protocol (MCP) server implemented with Fas
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn api.mcp:app --reload
+uvicorn api.app:app --reload
 ```
 
-The server listens on `http://localhost:8000`. The MCP tool endpoint maps to `POST /api/mcp`, which uvicorn exposes as `POST /`.
+The server listens on `http://localhost:8000`. Call `POST /api/mcp` (or simply `POST /` when running locally) to exercise the tool.
 
 Example MCP request body:
 
@@ -59,7 +59,7 @@ The response mirrors the MCP server contract: a text summary plus structured JSO
    vercel deploy --prod
    ```
 
-Vercel automatically detects the Python runtime for any `api/*.py` file. The deployed endpoint is reachable at `/api/mcp`. No environment variables are required.
+Vercel automatically detects the Python runtime for any `api/*.py` file. The included `vercel.json` maps `/api/mcp` to the FastAPI function. No environment variables are required.
 
 ## Tool Contract
 
