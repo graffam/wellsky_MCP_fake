@@ -164,9 +164,13 @@ def _handle_rpc_control_message(
     if method == "initialize":
         capabilities = {
             "tools": {
-                "list": True,
-                "call": True,
-            }
+                "list": {
+                    "pagination": False,
+                },
+                "call": {
+                    "parallel": False,
+                },
+            },
         }
         result = {
             "protocolVersion": "0.5",
@@ -190,9 +194,25 @@ def _handle_rpc_control_message(
                     ),
                     "inputSchema": tool_schema,
                 }
-            ]
+            ],
+            "nextCursor": None,
         }
         return _format_json_rpc_result(message_id, result)
+
+    if method == "notifications/subscribe":
+        return _format_json_rpc_result(
+            message_id,
+            {"subscriptions": params.get("subscriptions", [])},
+        )
+
+    if method == "notifications/unsubscribe":
+        return _format_json_rpc_result(
+            message_id,
+            {"unsubscribed": params.get("subscriptions", [])},
+        )
+
+    if method == "logging/setLevel":
+        return _format_json_rpc_result(message_id, {"acknowledged": True})
 
     if method == "ping":
         return _format_json_rpc_result(message_id, {"message": "pong"})
@@ -209,7 +229,11 @@ def _build_tool_json_schema() -> Dict[str, Any]:
             "email": {"type": "string", "format": "email"},
         },
         "additionalProperties": False,
-        "minProperties": 1,
+        "anyOf": [
+            {"required": ["phone"]},
+            {"required": ["sms"]},
+            {"required": ["email"]},
+        ],
     }
 
     patient_schema: Dict[str, Any] = {
