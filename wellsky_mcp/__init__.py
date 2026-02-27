@@ -1,4 +1,4 @@
-"""WellSky MCP outreach simulator package."""
+"""WellSky MCP outreach package."""
 
 from .models import (
     ContactInfo,
@@ -9,7 +9,7 @@ from .models import (
     Patient,
     ReachOutInput,
 )
-from .simulator import simulate_wellsky_outreach
+from .simulator import process_wellsky_outreach
 
 __all__ = [
     "ContactInfo",
@@ -19,5 +19,5 @@ __all__ = [
     "OutreachStatus",
     "Patient",
     "ReachOutInput",
-    "simulate_wellsky_outreach",
+    "process_wellsky_outreach",
 ]

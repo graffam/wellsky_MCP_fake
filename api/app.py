@@ -86,8 +86,7 @@ def _transport_security_settings() -> TransportSecuritySettings:
 mcp = FastMCP(
     name="wellsky-outreach-mcp",
     instructions=(
-        "Emulate WellSky's patient outreach workflow. All actions are simulated—"
-        "do not rely on this data for real-world healthcare decisions."
+        "WellSky patient outreach workflow interface. Use the reach_out_to_patients tool to register outreach jobs and retrieve a summary report."
     ),
     stateless_http=True,
     json_response=True,

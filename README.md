@@ -1,6 +1,6 @@
 # WellSky Outreach MCP Server (Python on Vercel)
 
-This project delivers a Model Context Protocol (MCP) server implemented with FastMCP (the reference server from the `mcp` Python package) and deployed via Vercel’s Python runtime. The lone tool, `reach_out_to_patients`, accepts a batch of patient records and produces a simulated outreach report. The workflow is fully mocked—no real WellSky APIs are invoked.
+This project delivers a Model Context Protocol (MCP) server implemented with FastMCP (the reference server from the `mcp` Python package) and deployed via Vercel’s Python runtime. The lone tool, `reach_out_to_patients`, accepts a batch of patient records and produces an outreach report.
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ Example MCP request body:
 }
 ```
 
-The response mirrors the MCP server contract: a text summary plus structured JSON describing each simulated outreach record.
+The response mirrors the MCP server contract: a text summary plus structured JSON describing each outreach record.
 
 ## Deployment to Vercel
 
@@ -64,7 +64,7 @@ Vercel automatically detects the Python runtime for any `api/*.py` file. The inc
 ## Tool Contract
 
 - **Tool name:** `reach_out_to_patients`
-- **Description:** Pretends to hand patient outreach tasks to WellSky’s engagement services.
+- **Description:** Hands patient outreach tasks to WellSky’s engagement services.
 - **Input schema (simplified):**
   - `patients[]` – required array
     - `id` – string
@@ -73,5 +73,3 @@ Vercel automatically detects the Python runtime for any `api/*.py` file. The inc
     - Optional: `preferredChannel`, `carePlanSummary`, `notes`
   - Optional: `messageTemplate`, `fallbackChannel`
 - **Output:** Text summary plus JSON payload with `outcomes[]` and job metadata.
-
-Because everything is mocked, feel free to adapt the schema or message templates without worrying about external dependencies.

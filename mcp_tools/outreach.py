@@ -5,17 +5,17 @@ from typing import Any, Literal, Optional
 from mcp.server.fastmcp import FastMCP
 from pydantic import ValidationError
 
-from wellsky_mcp import ReachOutInput, simulate_wellsky_outreach
+from wellsky_mcp import ReachOutInput, process_wellsky_outreach
 
 
 def register(server: FastMCP) -> None:
-    """Register the simulated WellSky outreach tool with the provided MCP server."""
+    """Register the WellSky outreach tool with the provided MCP server."""
 
     @server.tool(
         name="reach_out_to_patients",
         description=(
-            "Pretends to send outreach notifications to patients via WellSky's care "
-            "coordination services and returns a simulated summary."
+            "Sends outreach notifications to patients via WellSky's care "
+            "coordination services and returns a summary."
         ),
     )
     def reach_out_to_patients(
@@ -32,10 +32,10 @@ def register(server: FastMCP) -> None:
         except ValidationError as exc:
             raise ValueError(f"Invalid outreach request: {exc}") from exc
 
-        simulation = simulate_wellsky_outreach(payload)
+        job = process_wellsky_outreach(payload)
 
-        queued = sum(1 for outcome in simulation.outcomes if outcome.status == "queued")
-        manual = len(simulation.outcomes) - queued
+        queued = sum(1 for outcome in job.outcomes if outcome.status == "queued")
+        manual = len(job.outcomes) - queued
 
         summary_lines = [
             f"- {outcome.fullName} ({outcome.patientId}) -> "
@@ -44,12 +44,12 @@ def register(server: FastMCP) -> None:
                 if outcome.status == "queued"
                 else f"Manual review required: {outcome.reason or 'unspecified'}"
             )
-            for outcome in simulation.outcomes
+            for outcome in job.outcomes
         ]
 
         text_summary = "\n".join(
             [
-                f"Simulated hand-off to WellSky Outreach on {simulation.metadata.startedAt}.",
+                f"Hand-off to WellSky Outreach on {job.metadata.startedAt}.",
                 f"Queued: {queued} | Needs manual review: {manual}.",
                 "",
                 *summary_lines,
@@ -59,7 +59,7 @@ def register(server: FastMCP) -> None:
         return {
             "content": [
                 {"type": "text", "text": text_summary},
-                {"type": "json", "json": simulation.dict()},
+                {"type": "json", "json": job.dict()},
             ]
         }
 

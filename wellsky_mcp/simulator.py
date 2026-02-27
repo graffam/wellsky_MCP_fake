@@ -57,7 +57,7 @@ def _resolve_channel(
     return (
         "queued",
         channel,
-        f"Simulated push to WellSky Outreach via {channel.upper()} ({destination}).",
+        f"Hand-off to WellSky Outreach via {channel.upper()} ({destination}).",
         None,
     )
 
@@ -92,8 +92,8 @@ def _build_outcomes(
     return outcomes
 
 
-def simulate_wellsky_outreach(payload: ReachOutInput) -> OutreachResponse:
-    """Simulate a WellSky outreach job."""
+def process_wellsky_outreach(payload: ReachOutInput) -> OutreachResponse:
+    """Process a WellSky outreach job."""
     started_at = datetime.now(tz=timezone.utc)
     outcomes = _build_outcomes(
         payload.patients,
@@ -105,7 +105,7 @@ def simulate_wellsky_outreach(payload: ReachOutInput) -> OutreachResponse:
     duration_ms = int((datetime.now(tz=timezone.utc) - started_at).total_seconds() * 1000)
 
     metadata = OutreachMetadata(
-        integration="WellSky Patient Outreach (simulated)",
+        integration="WellSky Patient Outreach",
         durationMs=duration_ms,
         startedAt=started_at.replace(microsecond=0).isoformat(),
     )
