@@ -10,7 +10,7 @@ from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
-from mcp_tools import outreach
+from mcp_tools import outreach, census
 
 
 def _env_csv(name: str) -> list[str]:
@@ -95,6 +95,7 @@ mcp = FastMCP(
 )
 
 outreach.register(mcp)
+census.register(mcp)
 
 _http_app = mcp.streamable_http_app()
 
