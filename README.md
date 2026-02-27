@@ -59,7 +59,7 @@ The response mirrors the MCP server contract: a text summary plus structured JSO
    vercel deploy --prod
    ```
 
-The included `vercel.json` routes `/api/mcp` to the FastAPI app and pins the runtime to Python 3.11. No environment variables are required.
+Vercel automatically detects the Python runtime for any `api/*.py` file. The deployed endpoint is reachable at `/api/mcp`. No environment variables are required.
 
 ## Tool Contract
 
