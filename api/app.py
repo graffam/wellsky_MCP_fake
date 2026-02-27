@@ -27,6 +27,13 @@ def _transport_security_settings() -> TransportSecuritySettings:
     }:
         return TransportSecuritySettings(enable_dns_rebinding_protection=False)
 
+    # Vercel runs behind a proxy and may present varying Host headers.
+    # To avoid "Invalid Host header" on Vercel deployments, disable DNS
+    # rebinding protection automatically when running on Vercel unless
+    # explicitly overridden via MCP_DISABLE_DNS_REBINDING_PROTECTION.
+    if os.getenv("VERCEL") or os.getenv("VERCEL_URL"):
+        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+
     allowed_hosts = _env_csv("MCP_ALLOWED_HOSTS")
     allowed_origins = _env_csv("MCP_ALLOWED_ORIGINS")
 
